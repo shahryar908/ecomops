@@ -1,5 +1,3 @@
-# ShopSphere
-
 A 5-microservice e-commerce platform with a React frontend, full local Docker stack, Kubernetes manifests for cloud deploy, Terraform for AWS infrastructure, and a GitOps pipeline driven by GitHub Actions + ArgoCD.
 
 ## Table of contents
