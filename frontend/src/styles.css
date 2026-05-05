@@ -1,0 +1,65 @@
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #f7f8fa;
+  color: #1a1a1a;
+}
+a { color: #2563eb; text-decoration: none; }
+a:hover { text-decoration: underline; }
+button {
+  cursor: pointer;
+  background: #2563eb;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  font-size: 0.95rem;
+}
+button:hover { background: #1d4ed8; }
+button:disabled { background: #93c5fd; cursor: not-allowed; }
+input, select, textarea {
+  padding: 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  width: 100%;
+}
+.navbar {
+  background: white;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 1rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.navbar-links { display: flex; gap: 1.5rem; align-items: center; }
+.brand { font-weight: 700; font-size: 1.25rem; }
+.container { max-width: 1100px; margin: 0 auto; padding: 2rem; }
+.product-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+}
+.card {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+}
+.card img { width: 100%; height: 160px; object-fit: cover; border-radius: 4px; }
+.card h3 { margin: 0.5rem 0 0.25rem; font-size: 1rem; }
+.price { font-weight: 700; color: #2563eb; }
+.form { max-width: 400px; display: flex; flex-direction: column; gap: 0.75rem; }
+.form label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.9rem; }
+.error { color: #dc2626; font-size: 0.9rem; }
+.success { color: #059669; font-size: 0.9rem; }
+table { width: 100%; border-collapse: collapse; background: white; }
+th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #e5e7eb; }
+.status-paid { color: #059669; font-weight: 600; }
+.status-failed { color: #dc2626; font-weight: 600; }
+.status-pending { color: #d97706; font-weight: 600; }
+.row { display: flex; gap: 1rem; align-items: center; }
+.muted { color: #6b7280; font-size: 0.9rem; }

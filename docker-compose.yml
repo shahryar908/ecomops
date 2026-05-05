@@ -1,0 +1,128 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: shopsphere
+      POSTGRES_PASSWORD: shopsphere
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shopsphere"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - shopsphere
+
+  user-service:
+    build: ./user-service
+    ports:
+      - "3001:3001"
+    environment:
+      PORT: 3001
+      JWT_SECRET: ${JWT_SECRET}
+      DATABASE_URL: postgres://shopsphere:shopsphere@postgres:5432/shopsphere_users
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - shopsphere
+
+  product-service:
+    build: ./product-service
+    ports:
+      - "3002:3002"
+    environment:
+      PORT: 3002
+      JWT_SECRET: ${JWT_SECRET}
+      DATABASE_URL: postgres://shopsphere:shopsphere@postgres:5432/shopsphere_products
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - shopsphere
+
+  cart-service:
+    build: ./cart-service
+    ports:
+      - "3003:3003"
+    environment:
+      PORT: 3003
+      JWT_SECRET: ${JWT_SECRET}
+      DATABASE_URL: postgres://shopsphere:shopsphere@postgres:5432/shopsphere_cart
+      PRODUCT_SERVICE_URL: http://product-service:3002
+    depends_on:
+      postgres:
+        condition: service_healthy
+      product-service:
+        condition: service_started
+    networks:
+      - shopsphere
+
+  payment-service:
+    build: ./payment-service
+    ports:
+      - "3005:3005"
+    environment:
+      PORT: 3005
+      JWT_SECRET: ${JWT_SECRET}
+      DATABASE_URL: postgres://shopsphere:shopsphere@postgres:5432/shopsphere_payments
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - shopsphere
+
+  order-service:
+    build: ./order-service
+    ports:
+      - "3004:3004"
+    environment:
+      PORT: 3004
+      JWT_SECRET: ${JWT_SECRET}
+      DATABASE_URL: postgres://shopsphere:shopsphere@postgres:5432/shopsphere_orders
+      USER_SERVICE_URL: http://user-service:3001
+      PRODUCT_SERVICE_URL: http://product-service:3002
+      CART_SERVICE_URL: http://cart-service:3003
+      PAYMENT_SERVICE_URL: http://payment-service:3005
+    depends_on:
+      postgres:
+        condition: service_healthy
+      user-service:
+        condition: service_started
+      product-service:
+        condition: service_started
+      cart-service:
+        condition: service_started
+      payment-service:
+        condition: service_started
+    networks:
+      - shopsphere
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_USER_API: http://localhost:3001
+      VITE_PRODUCT_API: http://localhost:3002
+      VITE_CART_API: http://localhost:3003
+      VITE_ORDER_API: http://localhost:3004
+    depends_on:
+      - user-service
+      - product-service
+      - cart-service
+      - order-service
+    networks:
+      - shopsphere
+
+volumes:
+  postgres-data:
+
+networks:
+  shopsphere:
+    driver: bridge

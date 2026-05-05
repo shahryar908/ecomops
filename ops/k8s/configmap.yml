@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: shopsphere-config
+  namespace: ecomops
+data:
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: "5432"
+  POSTGRES_USER: shopsphere
+  USER_SERVICE_URL: http://user-service:3001
+  PRODUCT_SERVICE_URL: http://product-service:3002
+  CART_SERVICE_URL: http://cart-service:3003
+  ORDER_SERVICE_URL: http://order-service:3004
+  PAYMENT_SERVICE_URL: http://payment-service:3005
