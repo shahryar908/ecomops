@@ -21,23 +21,38 @@ A 5-microservice e-commerce platform with a React frontend, full local Docker st
 
 ## Architecture
 
-```
-                    ┌────────────┐
-                    │  Frontend  │  (Vite + React, port 5173)
-                    └─────┬──────┘
-                          │ axios
-       ┌──────────┬───────┼───────┬──────────┐
-       ▼          ▼       ▼       ▼          ▼
-   ┌──────┐  ┌──────┐  ┌──────┐ ┌──────┐  ┌──────┐
-   │ user │  │ prod │  │ cart │ │order │  │ pay  │
-   └──┬───┘  └──┬───┘  └──┬───┘ └──┬───┘  └──┬───┘
-      │         │         │        │         │
-      └─────────┴─────────┴────────┴─────────┘
-                          │
-                          ▼
-                   ┌──────────────┐
-                   │  PostgreSQL  │  5 databases (one per service)
-                   └──────────────┘
+```mermaid
+flowchart TD
+    subgraph Frontend
+        UI[React + Vite<br/>Port 5173]
+    end
+
+    subgraph "Backend Microservices"
+        User[User Service<br/>3001<br/>JWT Issuer]
+        Product[Product Service<br/>3002<br/>Catalog + Stock]
+        Cart[Cart Service<br/>3003<br/>User Cart]
+        Order[Order Service<br/>3004<br/>Orchestrator]
+        Payment[Payment Service<br/>3005<br/>Mock Processor]
+    end
+
+    subgraph Database
+        Postgres[(PostgreSQL 16<br/>5 Logical Databases)]
+    end
+
+    UI -->|axios| User
+    UI -->|axios| Product
+    UI -->|axios| Cart
+    UI -->|axios| Order
+    UI -->|axios| Payment
+
+    User <--> Postgres
+    Product <--> Postgres
+    Cart <--> Postgres
+    Order <--> Postgres
+    Payment <--> Postgres
+
+    Order -->|Check + Decrement Stock| Product
+    Order -->|Process Payment| Payment
 ```
 
 | Service          | Port | Database               | Responsibility                                  |
@@ -62,6 +77,23 @@ A 5-microservice e-commerce platform with a React frontend, full local Docker st
 - **GitOps:** ArgoCD watches `ops/k8s/`, syncs on every commit
 
 ## Folder layout
+
+```mermaid
+graph TD
+    Root[ecommerceops/] --> Frontend[frontend/]
+    Root --> User[user-service/]
+    Root --> Product[product-service/]
+    Root --> Cart[cart-service/]
+    Root --> Order[order-service/]
+    Root --> Payment[payment-service/]
+    Root --> DB[db/init/]
+    Root --> Ops[ops/]
+    Root --> CI[.github/workflows/]
+
+    Ops --> K8s[k8s/ <br/>Kubernetes manifests]
+    Ops --> Argo[argocd/]
+    Ops --> Infra[infra/ <br/>Terraform]
+```
 
 ```
 ecommerceops/
@@ -136,23 +168,17 @@ This section covers everything under `ops/` plus the CI workflow — the full li
 
 ## Deployment topology (cloud)
 
-```
-   GitHub repo
-       │
-       ▼  push to main
-   GitHub Actions ──build──▶ Docker Hub (shahryar371/<svc>:<sha>)
-       │
-       └─ kustomize edit set image
-       │
-       ▼  bot commit "[skip ci]"
-   GitHub repo (updated)
-       │
-       ▼  ArgoCD watches main
-   ArgoCD ──▶ EKS cluster
-                  │
-                  ├── Deployments × 6 (frontend + 5 backends)
-                  ├── Services × 6 (ClusterIP)
-                  └── StatefulSet: postgres (1 replica, EBS-backed PVC)
+```mermaid
+flowchart TD
+    Repo[GitHub repo] -->|push to main| GHA[GitHub Actions]
+    GHA -->|build + push| Hub["Docker Hub<br/>shahryar371/&lt;svc&gt;:&lt;sha&gt;"]
+    GHA -->|kustomize edit set image| Bot["bot commit<br/>'[skip ci]'"]
+    Bot --> Repo2[GitHub repo updated]
+    Repo2 -->|ArgoCD watches main| Argo[ArgoCD]
+    Argo -->|kubectl apply| EKS[EKS cluster]
+    EKS --> Deploys[Deployments × 6<br/>frontend + 5 backends]
+    EKS --> Svcs[Services × 6<br/>ClusterIP]
+    EKS --> SS[StatefulSet: postgres<br/>1 replica, EBS-backed PVC]
 ```
 
 ## Kubernetes manifests
@@ -279,11 +305,20 @@ terraform destroy
 
 File: `.github/workflows/ci.yml`. Triggers on push to `main` and pull requests.
 
+```mermaid
+flowchart TD
+    Push[Push to main] --> CI[GitHub Actions]
+    CI --> Detect{Changes Detected?}
+    Detect -->|Yes| Build[Build & Push Images]
+    Build --> Update[Update kustomization.yml]
+    Update --> Commit[Commit changes<br/>with skip ci]
+    Commit --> Argo[ArgoCD]
+    Argo --> Deploy[Sync to EKS Cluster]
+```
+
 ### Jobs
 
-```
-detect-changes ──▶ build-and-push (matrix) ──▶ update-manifests
-```
+`detect-changes` ──▶ `build-and-push` (matrix) ──▶ `update-manifests`
 
 **1. `detect-changes`** uses `dorny/paths-filter` to figure out which of the six service folders changed. Output is a JSON array consumed by the next job's matrix strategy.
 
@@ -317,23 +352,15 @@ File: `ops/argocd/application.yml`. ArgoCD watches `ops/k8s/` on the `main` bran
 
 ### The full loop
 
-```
-push to main
-   │
-   ▼
-GitHub Actions: detect changed services (path filters)
-   │
-   ▼
-build matrix → docker.io/shahryar371/<svc>:<sha> + :latest
-   │
-   ▼
-kustomize edit set image  (rewrites ops/k8s/kustomization.yml)
-   │
-   ▼
-bot commit "ci: bump image tags to <sha> [skip ci]" → push
-   │
-   ▼
-ArgoCD detects drift in ops/k8s/ → kubectl apply → rolling update
+```mermaid
+flowchart LR
+    A[push to main] --> B[GHA: detect changed services]
+    B --> C["build matrix<br/>docker.io/shahryar371/&lt;svc&gt;:&lt;sha&gt;"]
+    C --> D[kustomize edit set image]
+    D --> E["bot commit<br/>'ci: bump tags [skip ci]'"]
+    E --> F[ArgoCD detects drift]
+    F --> G[kubectl apply]
+    G --> H[Rolling update on EKS]
 ```
 
 ### Install ArgoCD
